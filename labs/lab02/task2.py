@@ -8,6 +8,8 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+logger = logging.getLogger(__name__)
+
 # Регулярні вирази для фільтрації доменів (re)
 # Шукає піддомени завдовжки від 20 символів
 LONG_SUBDOMAIN_REGEX = re.compile(r"^[a-zA-Z0-9-]{20,}\.", re.IGNORECASE)
@@ -33,7 +35,7 @@ def load_blacklist(
     path: Path,
 ) -> set[str]:  # Зчитує файл чорного списку та повертає set із заблокованими доменами
     if not path.exists():
-        logging.warning(f"Файл чорного списку '{path}' не знайдено.")
+        logger.warning(f"Файл чорного списку '{path}' не знайдено.")
         return set()
 
     with open(path, "r", encoding="utf-8") as f:
@@ -49,10 +51,10 @@ def parse_dns_log(log_path: Path, blacklist: set[str], min_domain_len: int):
     suspicious_records = []  # Зчитує рядки, підраховує статистику типів запитів
 
     if not log_path.exists():
-        logging.error(f"Файл логів '{log_path}' не знайдено!")
+        logger.error(f"Файл логів '{log_path}' не знайдено!")
         return type_counter, suspicious_records, 0
 
-    logging.info(f"Parsing DNS log file {log_path}...")
+    logger.info(f"Parsing DNS log file {log_path}...")
 
     total_records = 0
     with open(log_path, "r", encoding="utf-8-sig") as f:
@@ -162,7 +164,7 @@ def parse_dns_log(log_path: Path, blacklist: set[str], min_domain_len: int):
                 }
             )
 
-    logging.info(f"Processed {total_records:,} DNS query records.")
+    logger.info(f"Processed {total_records:,} DNS query records.")
     return type_counter, suspicious_records, total_records
 
 
@@ -210,7 +212,7 @@ def export_to_csv(
         writer.writerows(records)
 
     print()
-    logging.info(f"Suspicious records exported to {out_path}")
+    logger.info(f"Suspicious records exported to {out_path}")
 
 
 def main():
