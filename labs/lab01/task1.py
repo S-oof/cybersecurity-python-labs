@@ -20,6 +20,7 @@ passwords = [
     "standard",
     "Risk@Analys1s",
     "typical",
+    "qqq",
 ]
 criteria = {
     "min_length": 10,
