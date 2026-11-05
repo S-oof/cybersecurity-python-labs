@@ -9,22 +9,26 @@ from labs.lab03.schemas import CategoryCreate, RecordCreate, RecordReplace
 
 
 def get_categories() -> list[dict[str, Any]]:
+    """Отримання списку всіх категорій у порядку зростання ID."""
     with closing(get_connection()) as conn:
-        conn.row_factory = sqlite3.Row  # <-- ДОДАТИ ЦЕЙ РЯДОК
+        conn.row_factory = sqlite3.Row  # Гарантує створення словника {id: ..., name: ...}
         cursor = conn.execute("SELECT id, name FROM categories ORDER BY id ASC;")
         return [dict(row) for row in cursor.fetchall()]
 
 
 def create_category(category: CategoryCreate) -> dict[str, Any]:
-    # """Створення категорії (ID генерується базою даних)."""
+    """Створення категорії та повернення створеного об'єкта з ID."""
     with closing(get_connection()) as conn:
         with conn:
-            conn.row_factory = sqlite3.Row  
             cursor = conn.execute(
-                "INSERT INTO categories (name) VALUES (?) RETURNING id, name;",
+                "INSERT INTO categories (name) VALUES (?);",
                 (category.name,),
             )
-            return dict(cursor.fetchone())
+            # Отримуємо автоматично згенерований ID від SQLite
+            new_id = cursor.lastrowid
+
+        # Повертаємо словник з правильним id (не None)
+        return {"id": new_id, "name": category.name}
 
 
 def delete_category(category_id: int) -> str:
