@@ -16,8 +16,17 @@ def run_demo() -> None:
         permissions=["ban_ip", "read_logs"],
     )
 
+    new_admin = Admin(
+        "new_admin",
+        "newadmin@example.com",
+        password = "NewAdmin!1234",
+        permissions = ["drink_water"],
+    )
+
     print(f"Створено користувача: {user}")
     print(f"Створено адміністратора: {admin}")
+    print(f"Створено адміністратора: {new_admin}")
+
 
     # 2. Зміна email з валідацією
     print("Зміна email з валідацією")
@@ -39,6 +48,7 @@ def run_demo() -> None:
     admin.revoke_permission("ban_ip")
     print(f"Після відкликання 'ban_ip': {admin}")
     print(f"Перевірка has_permission('ban_ip'): {admin.has_permission('ban_ip')}\n")
+
 
     # 4. Робота з UserAccount, сесією та таймаутом
     print("Робота з UserAccount, сесією та таймаутом")

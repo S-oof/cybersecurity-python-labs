@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, ClassVar
 
-# ==========================================
-# КОНСТАНТИ БЕЗПЕКИ ТА НАЛАШТУВАНЬ СЕСІЇ
-# ==========================================
+
 SALT_SIZE_BYTES = 16
 PBKDF2_ITERATIONS = 100_000
 SESSION_TIMEOUT_SEC = 900  # 15 хвилин
@@ -19,10 +17,7 @@ EMAIL_REGEX = re.compile(
 )
 
 
-# ==========================================
-# 1. КЛАС КОРЕНЕВОГО КОРИСТУВАЧА (User)
-# ==========================================
-class User:
+class User: #incapsulation
     def __init__(
         self,
         username: str,
@@ -55,7 +50,7 @@ class User:
         self._email = value
 
     def set_password(self, password: str | None) -> None:
-        """Встановлює безпечний криптографічний хеш пароля та сіль."""
+        # """Встановлює безпечний криптографічний хеш пароля та сіль."""
         if not password:
             self._password_salt = b""
             self._password_hash = b""
@@ -69,7 +64,7 @@ class User:
         )
 
     def check_password(self, password: str) -> bool:
-        """Перевіряє пароль за допомогою стійкого до атак порівняння hmac.compare_digest."""
+        # """Перевіряє пароль за допомогою стійкого до атак порівняння hmac.compare_digest."""
         if not self._password_hash or not self._password_salt:
             return False
         candidate_hash = hashlib.pbkdf2_hmac(
@@ -81,7 +76,7 @@ class User:
         return hmac.compare_digest(self._password_hash, candidate_hash)
 
     def deactivate(self) -> None:
-        """Деактивує обліковий запис користувача."""
+        # """Деактивує обліковий запис користувача."""
         self.active = False
 
     def __str__(self) -> str:
@@ -91,13 +86,8 @@ class User:
             f"role='{self.role}', status={status})"
         )
 
-
-# ==========================================
-# 2. КЛАС АДМІНІСТРАТОРА (Admin)
-# ==========================================
 class Admin(User):
-    """Клас адміністратора, що наслідує User та додає управління правами доступу."""
-
+   #наслідування
     def __init__(
         self,
         username: str,
@@ -118,19 +108,19 @@ class Admin(User):
         )
 
     def grant_permission(self, permission: str) -> None:
-        """Надає додаткове право доступу адміністратору."""
+        # """Надає додаткове право доступу адміністратору."""
         if not permission or not permission.strip():
             raise ValueError("Назва дозволу не може бути порожньою.")
         self.permissions.add(permission.strip())
 
     def revoke_permission(self, permission: str) -> None:
-        """Відкликає чинне право доступу адміністратора."""
+        # """Відкликає чинне право доступу адміністратора."""
         if not permission or not permission.strip():
             raise ValueError("Назва дозволу не може бути порожньою.")
         self.permissions.discard(permission.strip())
 
     def has_permission(self, permission: str) -> bool:
-        """Перевіряє наявність вказаного дозволу."""
+        # """Перевіряє наявність вказаного дозволу."""
         return permission.strip() in self.permissions
 
     def __str__(self) -> str:
@@ -142,11 +132,8 @@ class Admin(User):
         )
 
 
-# ==========================================
-# 3. КЛАС КОРИСТУВАЦЬКОЇ СЕСІЇ (Session)
-# ==========================================
 class Session:
-    """Клас користувацької сесії з контролем часу таймауту."""
+    # """Клас користувацької сесії з контролем часу таймауту."""
 
     def __init__(self, ip: str) -> None:
         if not ip or not ip.strip():
@@ -157,11 +144,11 @@ class Session:
         self.last_activity: datetime = now
 
     def touch(self) -> None:
-        """Оновлює час останньої активності сесії поточним часом."""
+        # """Оновлює час останньої активності сесії поточним часом."""
         self.last_activity = datetime.now(timezone.utc)
 
     def is_active(self, timeout_sec: int) -> bool:
-        """Перевіряє, чи не минув заданий час з моменту останньої дії."""
+        # """Перевіряє, чи не минув заданий час з моменту останньої дії."""
         if timeout_sec <= 0:
             raise ValueError("Таймаут сесії має бути додатним числом.")
         now = datetime.now(timezone.utc)
@@ -174,12 +161,9 @@ class Session:
         )
 
 
-# ==========================================
-# 4. ЖУРНАЛ АУДІТУ ПОДІЙ БЕЗПЕКИ (AuditLog)
-# ==========================================
 @dataclass(frozen=True)
 class AuditEntry:
-    """Конкретний запис у журналі аудиту (незмінний датаклас)."""
+    # """Конкретний запис у журналі аудиту (незмінний датаклас)."""
 
     timestamp: datetime
     username: str
@@ -187,18 +171,18 @@ class AuditEntry:
 
 
 class AuditLog:
-    """Журнал для безпечного накопичення та відображення подій системи."""
+    # """Журнал для безпечного накопичення та відображення подій системи."""
 
     def __init__(self) -> None:
         self._entries: list[AuditEntry] = []  # Інкапсульований список логів
 
     @property
     def entries(self) -> list[AuditEntry]:
-        """Повертає безпечну копію списку записів логів."""
+        # """Повертає безпечну копію списку записів логів."""
         return list(self._entries)
 
     def add_log(self, username: str, action: str) -> None:
-        """Створює запис з поточним UTC часом (паролі сюди не потрапляють)."""
+        # """Створює запис з поточним UTC часом (паролі сюди не потрапляють)."""
         entry = AuditEntry(
             timestamp=datetime.now(timezone.utc),
             username=username,
@@ -207,7 +191,7 @@ class AuditLog:
         self._entries.append(entry)
 
     def show_all(self) -> None:
-        """Виводить увесь вміст журналу аудиту на екран."""
+        # """Виводить увесь вміст журналу аудиту на екран."""
         print("\n-- ЗАПИСИ ЖУРНАЛУ АУДІТУ (AUDIT LOG) --")
         if not self._entries:
             print("(Журнал порожній)")
@@ -218,11 +202,8 @@ class AuditLog:
         print("---------------------------------------")
 
 
-# ==========================================
-# 5. КОМПОЗИЦІЯ СУТНОСТЕЙ: КЛАС USERACCOUNT
-# ==========================================
 class UserAccount:
-    """Обліковий запис, який об'єднує сутності User, Session та AuditLog за допомогою композиції."""
+    # """Обліковий запис, який об'єднує сутності User, Session та AuditLog за допомогою композиції."""
 
     _ALLOWED_KEYS: ClassVar[dict[str, type | tuple[type, ...]]] = {
         "user": User,
@@ -250,7 +231,7 @@ class UserAccount:
         self.audit_log: AuditLog = audit_log if audit_log is not None else AuditLog()
 
     def login(self, username: str, password: str, ip: str) -> bool:
-        """Здійснює автентифікацію. У разі успіху створює нову сесію та оновлює лог."""
+        # """Здійснює автентифікацію. У разі успіху створює нову сесію та оновлює лог."""
         if not username or not username.strip():
             raise ValueError("Ім'я користувача на вході не може бути порожнім.")
 
@@ -268,25 +249,26 @@ class UserAccount:
         return True
 
     def is_authenticated(self, timeout_sec: int = SESSION_TIMEOUT_SEC) -> bool:
-        """Перевіряє життєздатність сесії. Невдала перевірка анулює її та не робить touch."""
+        # """Перевіряє життєздатність сесії. Невдала перевірка анулює її та не робить touch."""
         if self.session is None or not self.user.active:
             return False
         return self.session.is_active(timeout_sec)
 
     def logout(self) -> None:
-        """Коректно завершує діючу сесію та фіксує це в аудиті."""
+        # """Коректно завершує діючу сесію та фіксує це в аудиті."""
         if self.session is not None:
             self.session = None
             self.audit_log.add_log(self.user.username, "logout")
 
     def __getitem__(self, key: str) -> Any:
-        """Забезпечує поліморфний інтерфейс читання дозволених об'єктів (наприклад account["user"])."""
+        # Забезпечує поліморфний інтерфейс читання дозволених об'єктів (наприклад account["user"]).
         if key not in self._ALLOWED_KEYS:
             raise KeyError(f"Невідомий або заборонений ключ: '{key}'")
         return getattr(self, key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """Оновлює об'єкти з повною валідацією типів на відповідність (наприклад account["session"] = ...)."""
+        # Оновлює об'єкти з повною валідацією типів на відповідність (наприклад account["session"] = ...)
+
         if key not in self._ALLOWED_KEYS:
             raise KeyError(f"Невідомий або заборонений ключ: '{key}'")
         expected_type = self._ALLOWED_KEYS[key]

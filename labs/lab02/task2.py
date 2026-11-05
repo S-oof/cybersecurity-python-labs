@@ -33,7 +33,7 @@ def calculate_entropy(
 
 def load_blacklist(
     path: Path,
-) -> set[str]:  # Зчитує файл чорного списку та повертає set із заблокованими доменами
+) -> set[str]:  #Зчитує файл чорного списку та повертає set із заблокованими доменами
     if not path.exists():
         logger.warning(f"Файл чорного списку '{path}' не знайдено.")
         return set()
