@@ -1,4 +1,4 @@
-"""Шар доступу до даних SQLite (repository.py) для Варіанта 8."""
+#напряму взаємодіє з бд
 
 from contextlib import closing
 import sqlite3
@@ -8,21 +8,18 @@ from labs.lab03.database import get_connection
 from labs.lab03.schemas import CategoryCreate, RecordCreate, RecordReplace
 
 
-# =========================================================================
-# 1. КАТЕГОРІЇ
-# =========================================================================
-
 def get_categories() -> list[dict[str, Any]]:
-    """Отримання списку всіх категорій у порядку зростання ID."""
     with closing(get_connection()) as conn:
+        conn.row_factory = sqlite3.Row  # <-- ДОДАТИ ЦЕЙ РЯДОК
         cursor = conn.execute("SELECT id, name FROM categories ORDER BY id ASC;")
         return [dict(row) for row in cursor.fetchall()]
 
 
 def create_category(category: CategoryCreate) -> dict[str, Any]:
-    """Створення категорії (ID генерується базою даних)."""
+    # """Створення категорії (ID генерується базою даних)."""
     with closing(get_connection()) as conn:
         with conn:
+            conn.row_factory = sqlite3.Row  
             cursor = conn.execute(
                 "INSERT INTO categories (name) VALUES (?) RETURNING id, name;",
                 (category.name,),
@@ -53,10 +50,6 @@ def delete_category(category_id: int) -> str:
         return "success"
 
 
-# =========================================================================
-# 2. ЗАПИСИ (RECORDS)
-# =========================================================================
-
 def get_record_by_id(record_id: int) -> dict[str, Any] | None:
     """Отримання одного запису за ID разом із category_name через JOIN."""
     query = """
@@ -72,7 +65,7 @@ def get_record_by_id(record_id: int) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
-def get_records(
+def get_records( #перевіряє посилання після ?
     category_id: int | None = None,
     status: str | None = None,
     min_value: float | None = None,
@@ -114,6 +107,7 @@ def get_records(
     params.extend([limit, offset])
 
     with closing(get_connection()) as conn:
+        conn.row_factory = sqlite3.Row  # <-- ДОДАТИ ЦЕЙ РЯДОК
         cursor = conn.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
 
@@ -197,7 +191,7 @@ def delete_record(record_id: int) -> bool:
         return True
 
 
-def create_records_bulk(
+def create_records_bulk( #даю велики джсон і створює по ньому декілька записів
     records: list[RecordCreate],
 ) -> list[dict[str, Any]]:
     """Пакетне створення записів в одній атомарній транзакції."""

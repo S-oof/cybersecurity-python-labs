@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(
+app = FastAPI( #ініціалізація програми
     title=f"API: {DOMAIN_NAME} (Варіант {VARIANT_NUMBER})",
     description=(
         f"Сервіс обліку вимірювань часу відновлення сервісів.\n"

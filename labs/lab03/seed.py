@@ -1,4 +1,5 @@
 """Початкове заповнення бази даних із файлу data/seed.json (Варіант 8)."""
+# початкова ініціалізація
 
 from contextlib import closing
 import json
@@ -22,14 +23,14 @@ VALID_STATUSES = {"new", "in_progress", "done"}
 
 
 def load_and_validate_json(file_path: Path) -> dict:
-    """Зчитування та сувора валідація початкових даних Варіанта 8."""
+    """Зчитування та сувора валідація початкових даних"""
     if not file_path.exists():
         raise FileNotFoundError(
             f"Файл із початковими даними не знайдено за шляхом: {file_path}"
         )
 
     try:
-        data = json.loads(file_path.read_text(encoding="utf-8"))
+        data = json.loads(file_path.read_text(encoding="utf-8")) #загружає файл в змінну 
     except json.JSONDecodeError as e:
         raise ValueError(f"Помилка синтаксису JSON у файлі {file_path.name}: {e}")
 
@@ -39,23 +40,23 @@ def load_and_validate_json(file_path: Path) -> dict:
         )
 
     category_ids = set()
-    for cat in data["categories"]:
-        if not all(k in cat for k in ("id", "name")):
+    for cat in data["categories"]: #перебирає
+        if not all(k in cat for k in ("id", "name")): #перевіряє чи кожна катеогрія має айді імя, якщо ні - помилка
             raise ValueError(f"Категорія має містити 'id' та 'name': {cat}")
         if (
-            type(cat["id"]) is not int
+            type(cat["id"]) is not int 
             or cat["id"] <= 0
             or not isinstance(cat["name"], str)
         ):
             raise ValueError(f"Некоректний тип або значення категорії: {cat}")
-        category_ids.add(cat["id"])
+        category_ids.add(cat["id"]) #якщо всі перевірки ок - додає
 
-    for rec in data["records"]:
+    for rec in data["records"]: 
         required_fields = {"code", "title", "category_id", "value", "status"}
-        if not required_fields.issubset(rec.keys()):
+        if not required_fields.issubset(rec.keys()): #перевіряє чи множина має усі поля і чи вони є ключами
             raise ValueError(f"У записі відсутні обов'язкові поля: {rec}")
 
-        if rec["category_id"] not in category_ids:
+        if rec["category_id"] not in category_ids: 
             raise ValueError(
                 f"Порушення цілісності: category_id={rec['category_id']} у записі '{rec['code']}' не існує."
             )
@@ -80,24 +81,24 @@ def load_and_validate_json(file_path: Path) -> dict:
     return data
 
 
-def is_database_populated(connection: sqlite3.Connection) -> bool:
+def is_database_populated(connection: sqlite3.Connection) -> bool: #перевірка чи база даних заповнена
     """Перевірка наявності існуючих категорій чи записів."""
     cursor = connection.execute("SELECT COUNT(*) FROM categories;")
-    cat_count = cursor.fetchone()[0]  # Використовуємо [0] замість ["count"]
+    cat_count = cursor.fetchone()[0]
 
     cursor = connection.execute("SELECT COUNT(*) FROM records;")
-    rec_count = cursor.fetchone()[0]  # Використовуємо [0] замість ["count"]
+    rec_count = cursor.fetchone()[0]
 
     return cat_count > 0 or rec_count > 0
 
 
 def seed_database(data: dict) -> None:
     """Ініціалізація та заповнення бази даних у межах єдиної транзакції."""
-    # 1. Створюємо таблиці, якщо вони ще не існують
+    #  Створюємо таблиці, якщо вони ще не існують
     initialize_database()
 
     with closing(get_connection()) as connection:
-        # 2. Перевіряємо чи база вже заповнена
+        # Перевіряємо чи база вже заповнена
         if is_database_populated(connection):
             logger.info(
                 "База даних вже містить дані. Заповнення скасовано, зміни не вносилися."

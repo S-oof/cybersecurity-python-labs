@@ -3,12 +3,7 @@
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
-
-# =========================================================================
-# СХЕМИ ДЛЯ КАТЕГОРІЙ
-# =========================================================================
-
-class CategoryBase(BaseModel):
+class CategoryBase(BaseModel): #перевіряє чи джсон не суперечить вимогам перед записом у базу даних
     model_config = ConfigDict(
         str_strip_whitespace=True,
         extra="forbid",
@@ -22,23 +17,19 @@ class CategoryCreate(CategoryBase):
     pass
 
 
-class CategoryRead(CategoryBase):
+class CategoryRead(CategoryBase): # перевіряє чи айді більше 0
     """Схема читання категорії з id."""
     id: int = Field(gt=0)
 
 
-# =========================================================================
-# СХЕМИ ДЛЯ ЗАПИСІВ (RECORDS)
-# =========================================================================
-
-class RecordBase(BaseModel):
+class RecordBase(BaseModel): 
     model_config = ConfigDict(
         str_strip_whitespace=True,
-        extra="forbid",
+        extra="forbid", 
     )
     title: str = Field(min_length=3, max_length=120)
     category_id: int = Field(gt=0)
-    value: float = Field(ge=0.0, allow_inf_nan=False)
+    value: float = Field(ge=0.0, allow_inf_nan=False) 
     status: Literal["new", "in_progress", "done"]
 
 
@@ -50,7 +41,6 @@ class RecordCreate(RecordBase):
 class RecordReplace(RecordCreate):
     """Схема повної заміни запису через PUT /records/{record_id}."""
     pass
-
 
 class RecordRead(RecordCreate):
     """Схема читання запису з id та category_name (після JOIN)."""
