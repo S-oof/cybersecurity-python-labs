@@ -1,14 +1,9 @@
--- Створіть файл labs/lab03/schema.sql . Скопіюйте до нього послідовно:
--- 1. Спільний початок скрипту зі створенням таблиці categories .
--- 2. Один готовий блок створення records , який відповідає вашому варіанту.
--- 3. Спільне завершення скрипту.
-
 PRAGMA foreign_keys = ON;
 
 BEGIN TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS categories (
-    id INT PRIMARY KEY CHECK (id>0),
+    id INTEGER PRIMARY KEY CHECK (id > 0),
     name TEXT NOT NULL UNIQUE
         CHECK (length(trim(name)) BETWEEN 2 AND 40)
 );

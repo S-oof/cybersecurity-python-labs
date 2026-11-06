@@ -1,48 +1,51 @@
-"""Pydantic-моделі валідації вхідних та вихідних даних API (Варіант 8)."""
+# відповідає за перевірку типів і обмежень вхідних даних від клієнта (Request Body) перед їх збереженням у базу SQLite, а
+# також за формування коректної структури відповідей сервера
 
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
-class CategoryBase(BaseModel): #перевіряє чи джсон не суперечить вимогам перед записом у базу даних
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        extra="forbid",
-    )
-    # Межі 2-40 точно відповідають CHECK-обмеженню у schema.sql
+Status = Literal["new", "in_progress", "done"]
+
+
+class CategoryCreate(BaseModel):
+    """Тіло запиту POST /categories (id створює база)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
     name: str = Field(min_length=2, max_length=40)
 
 
-class CategoryCreate(CategoryBase):
-    """Схема створення категорії через POST /categories (без id)."""
-    pass
+class CategoryRead(CategoryCreate):
+    """Категорія у відповіді API."""
 
-
-class CategoryRead(CategoryBase): # перевіряє чи айді більше 0
-    """Схема читання категорії з id."""
     id: int = Field(gt=0)
 
 
-class RecordBase(BaseModel): 
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        extra="forbid", 
-    )
-    title: str = Field(min_length=3, max_length=120)
-    category_id: int = Field(gt=0)
-    value: float = Field(ge=0.0, allow_inf_nan=False) 
-    status: Literal["new", "in_progress", "done"]
+class RecordCreate(BaseModel):
+    """Тіло запиту POST /records та елемент пакета POST /records/bulk."""
 
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-class RecordCreate(RecordBase):
-    """Схема створення запису через POST /records."""
     code: str = Field(min_length=3, max_length=40)
+    title: str = Field(min_length=3, max_length=120)
+    # strict=True: не приймати "1", true тощо замість числа.
+    category_id: int = Field(gt=0, strict=True)
+    value: float = Field(
+        ge=0.0,
+        allow_inf_nan=False,
+        strict=True,
+        description="Час відновлення у хвилинах",
+    )
+    status: Status
 
 
 class RecordReplace(RecordCreate):
-    """Схема повної заміни запису через PUT /records/{record_id}."""
-    pass
+    """Тіло запиту PUT /records/{record_id}: усі змінювані поля обов'язкові."""
+
 
 class RecordRead(RecordCreate):
-    """Схема читання запису з id та category_name (після JOIN)."""
+    """Запис у відповіді API разом із назвою категорії."""
+
     id: int = Field(gt=0)
-    category_name: str = Field(min_length=2, max_length=40)
+    category_name: str

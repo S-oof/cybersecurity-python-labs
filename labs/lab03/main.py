@@ -1,58 +1,74 @@
-"""Головний модуль FastAPI-застосунку (main.py) для Варіанта 8."""
+"""FastAPI-застосунок лабораторної роботи №3 (варіант 8)."""
 
-from contextlib import asynccontextmanager
 import logging
-import sqlite3
-from fastapi import FastAPI, status
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from shared.student import STUDENT_NAME, GROUP_NAME, VARIANT_NUMBER
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 from labs.lab03.config import DOMAIN_NAME, THRESHOLD, UNIT
 from labs.lab03.database import initialize_database
 from labs.lab03.routers import categories, records
+from shared.student import GROUP_NAME, STUDENT_NAME, VARIANT_NUMBER
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Контекст життєвого циклу застосунку для ініціалізації бази даних."""
-    try:
-        logger.info("Автоматична перевірка та створення таблиць SQLite...")
-        initialize_database()
-    except sqlite3.Error as e:
-        logger.critical(f"Помилка ініціалізації таблиць SQLite: {e}")
-        raise
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Під час запуску створити відсутні таблиці (дані не змінюються)."""
+    initialize_database()
+    logger.info("Базу даних перевірено.")
     yield
 
 
-app = FastAPI( #ініціалізація програми
-    title=f"API: {DOMAIN_NAME} (Варіант {VARIANT_NUMBER})",
+app = FastAPI(
+    title=f"{DOMAIN_NAME}",
     description=(
-        f"Сервіс обліку вимірювань часу відновлення сервісів.\n"
-        f"**Одиниця вимірювання (unit):** {UNIT} (хвилини).\n"
-        f"**Прикладний поріг реагування (threshold):** {THRESHOLD} хв."
+        "Сервіс обліку навчальних вимірювань часу відновлення сервісів. "
+        "Категорія — сервіс, `value` — час відновлення, "
+        "`status` — стан перевірки вимірювання.\n\n"
+        f"**Одиниця вимірювання:** {UNIT} (хвилини).\n\n"
+        f"**Поріг:** {THRESHOLD} хв."
     ),
     version="1.0.0",
     lifespan=lifespan,
 )
-
-# Підключення модульних роутерів категорій та записів
 app.include_router(categories.router)
 app.include_router(records.router)
 
 
-@app.get("/ping", status_code=status.HTTP_200_OK, tags=["System"])
-def ping():
-    """Перевірка доступності Web API."""
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Відповідь 422 без поля input.
+
+    Стандартний обробник повертає введене значення, а значення на кшталт
+    1e309 (нескінченність) не можна записати в JSON — замість 422 був би 500.
+    """
+    errors = [
+        {key: value for key, value in error.items() if key != "input"}
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
+
+
+@app.get("/ping", tags=["System"], summary="Перевірка доступності")
+def ping() -> dict[str, str]:
+    """Повертає {"status": "ok"}."""
     return {"status": "ok"}
 
 
-@app.get("/student", status_code=status.HTTP_200_OK, tags=["System"])
-def student_info():
-    """Повертає інформацію про автора роботи з shared/student.py."""
+@app.get("/student", tags=["System"], summary="Дані студента")
+def student_info() -> dict[str, str | int]:
+    """ПІБ, група та варіант із shared/student.py."""
     return {
-        "student_name": STUDENT_NAME,
-        "group_name": GROUP_NAME,
+        "student_name": STUDENT_NAME.strip(),
+        "group_name": GROUP_NAME.strip(),
         "variant_number": VARIANT_NUMBER,
     }

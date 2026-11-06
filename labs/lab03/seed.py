@@ -1,152 +1,101 @@
-"""Початкове заповнення бази даних із файлу data/seed.json (Варіант 8)."""
+"""Початкове заповнення бази з data/seed.json.
+
+Запуск із кореня репозиторію: python -m labs.lab03.seed
+"""
 # початкова ініціалізація
 
-from contextlib import closing
 import json
 import logging
-import math
-from pathlib import Path
 import sqlite3
+import sys
+from contextlib import closing
+from pathlib import Path
 
-# Пакетний імпорт згідно з регламентом запуску python -m labs.lab03.seed
+from pydantic import ValidationError
+
 from labs.lab03.database import get_connection, initialize_database
+from labs.lab03.schemas import CategoryRead, RecordCreate
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s") 
+logger = logging.getLogger(__name__) 
 
-BASE_DIR = Path(__file__).resolve().parent
-JSON_DATA_PATH = BASE_DIR / "data" / "seed.json"
-VALID_STATUSES = {"new", "in_progress", "done"}
+SEED_PATH = Path(__file__).resolve().parent / "data" / "seed.json"
 
 
-def load_and_validate_json(file_path: Path) -> dict:
-    """Зчитування та сувора валідація початкових даних"""
-    if not file_path.exists():
-        raise FileNotFoundError(
-            f"Файл із початковими даними не знайдено за шляхом: {file_path}"
-        )
-
+def load_seed(path: Path) -> tuple[list[CategoryRead], list[RecordCreate]]: 
+    """Прочитати JSON і перевірити його тими самими моделями, що й API."""
     try:
-        data = json.loads(file_path.read_text(encoding="utf-8")) #загружає файл в змінну 
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Помилка синтаксису JSON у файлі {file_path.name}: {e}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise ValueError(f"Файл не знайдено: {path}") from error
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Помилка синтаксису JSON: {error}") from error
 
-    if "categories" not in data or "records" not in data:
-        raise ValueError(
-            "Некоректна структура JSON: відсутні ключі 'categories' або 'records'."
-        )
+    if not isinstance(data, dict) or set(data) != {"categories", "records"}:
+        raise ValueError("JSON має бути об'єктом з ключами 'categories' і 'records'")
 
-    category_ids = set()
-    for cat in data["categories"]: #перебирає
-        if not all(k in cat for k in ("id", "name")): #перевіряє чи кожна катеогрія має айді імя, якщо ні - помилка
-            raise ValueError(f"Категорія має містити 'id' та 'name': {cat}")
-        if (
-            type(cat["id"]) is not int 
-            or cat["id"] <= 0
-            or not isinstance(cat["name"], str)
-        ):
-            raise ValueError(f"Некоректний тип або значення категорії: {cat}")
-        category_ids.add(cat["id"]) #якщо всі перевірки ок - додає
+    try: #перевіряє чи дані коректні
+        categories = [CategoryRead.model_validate(item) for item in data["categories"]]
+        records = [RecordCreate.model_validate(item) for item in data["records"]]
+    except (TypeError, ValidationError) as error:
+        raise ValueError(f"Некоректні дані: {error}") from error
 
-    for rec in data["records"]: 
-        required_fields = {"code", "title", "category_id", "value", "status"}
-        if not required_fields.issubset(rec.keys()): #перевіряє чи множина має усі поля і чи вони є ключами
-            raise ValueError(f"У записі відсутні обов'язкові поля: {rec}")
-
-        if rec["category_id"] not in category_ids: 
+    category_ids = [category.id for category in categories]
+    if len(category_ids) != len(set(category_ids)):
+        raise ValueError("Повторний id категорії")
+    if len({c.name for c in categories}) != len(categories):
+        raise ValueError("Повторна назва категорії")
+    if len({r.code for r in records}) != len(records):
+        raise ValueError("Повторний code запису")
+    for record in records:
+        if record.category_id not in category_ids:
             raise ValueError(
-                f"Порушення цілісності: category_id={rec['category_id']} у записі '{rec['code']}' не існує."
+                f"Запис {record.code}: категорії {record.category_id} немає"
             )
-
-        if rec["status"] not in VALID_STATUSES:
-            raise ValueError(
-                f"Недопустимий статус '{rec['status']}' у записі '{rec['code']}'."
-            )
-
-        val = rec["value"]
-        # Перевіряємо, що value — дійсне скінченне невід'ємне число (не bool)
-        if (
-            type(val) is bool
-            or not isinstance(val, (int, float))
-            or not math.isfinite(val)
-            or val < 0
-        ):
-            raise ValueError(
-                f"Поле 'value' має бути невід'ємним числом (хвилини) у записі '{rec['code']}'."
-            )
-
-    return data
+    return categories, records
 
 
-def is_database_populated(connection: sqlite3.Connection) -> bool: #перевірка чи база даних заповнена
-    """Перевірка наявності існуючих категорій чи записів."""
-    cursor = connection.execute("SELECT COUNT(*) FROM categories;")
-    cat_count = cursor.fetchone()[0]
-
-    cursor = connection.execute("SELECT COUNT(*) FROM records;")
-    rec_count = cursor.fetchone()[0]
-
-    return cat_count > 0 or rec_count > 0
+def is_database_empty(connection: sqlite3.Connection) -> bool:
+    """Перевірити, що в обох таблицях немає рядків."""
+    for table in ("categories", "records"):
+        if connection.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+            return False
+    return True
 
 
-def seed_database(data: dict) -> None:
-    """Ініціалізація та заповнення бази даних у межах єдиної транзакції."""
-    #  Створюємо таблиці, якщо вони ще не існують
+def seed_database(categories: list[CategoryRead], records: list[RecordCreate]) -> None:
+    """Додати категорії та записи в одній транзакції."""
     initialize_database()
-
     with closing(get_connection()) as connection:
-        # Перевіряємо чи база вже заповнена
-        if is_database_populated(connection):
-            logger.info(
-                "База даних вже містить дані. Заповнення скасовано, зміни не вносилися."
-            )
+        if not is_database_empty(connection):
+            logger.info("База вже містить дані — заповнення пропущено.")
             return
-
-        try:
-            # 3. Атомарне додавання всіх категорій і записів у контексті транзакції (with connection)
-            with connection:
-                categories_tuples = [
-                    (cat["id"], cat["name"]) for cat in data["categories"]
-                ]
-                connection.executemany(
-                    "INSERT INTO categories (id, name) VALUES (?, ?);",
-                    categories_tuples,
-                )
-
-                records_tuples = [
-                    (
-                        rec["code"],
-                        rec["title"],
-                        rec["category_id"],
-                        rec["value"],
-                        rec["status"],
-                    )
-                    for rec in data["records"]
-                ]
-                connection.executemany(
-                    """
-                    INSERT INTO records (code, title, category_id, value, status)
-                    VALUES (?, ?, ?, ?, ?);
-                    """,
-                    records_tuples,
-                )
-
-            logger.info(
-                f"Успішно заповнено базу: додано {len(categories_tuples)} категорій та {len(records_tuples)} записів."
+        with connection:
+            connection.executemany(
+                "INSERT INTO categories (id, name) VALUES (?, ?)",
+                [(c.id, c.name) for c in categories],
             )
+            connection.executemany(
+                "INSERT INTO records (code, title, category_id, value, status)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [(r.code, r.title, r.category_id, r.value, r.status) for r in records],
+            )
+    logger.info("Додано %d категорій і %d записів.", len(categories), len(records))
 
-        except sqlite3.Error as e:
-            # Контекстний менеджер with connection автоматично виконає rollback()
-            logger.error(f"Помилка обмежень SQLite під час виконання пакета: {e}")
-            raise
+
+def main() -> int:
+    """Точка входу; повертає код завершення процесу."""
+    try:
+        categories, records = load_seed(SEED_PATH)
+        seed_database(categories, records)
+    except ValueError as error:
+        logger.error("Заповнення скасовано: %s", error)
+        return 1
+    except sqlite3.Error as error:
+        logger.error("Помилка SQLite, зміни скасовано: %s", error)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        seed_data = load_and_validate_json(JSON_DATA_PATH)
-        seed_database(seed_data)
-    except Exception as ex:
-        logger.error(f"Ініціалізацію скасовано через помилку: {ex}")
+    sys.exit(main())
