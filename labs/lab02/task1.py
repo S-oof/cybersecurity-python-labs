@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, ClassVar
 
-
 SALT_SIZE_BYTES = 16
 PBKDF2_ITERATIONS = 100_000
 SESSION_TIMEOUT_SEC = 900  # 15 хвилин
@@ -17,7 +16,7 @@ EMAIL_REGEX = re.compile(
 )
 
 
-class User: #incapsulation
+class User:  # incapsulation
     def __init__(
         self,
         username: str,
@@ -86,8 +85,9 @@ class User: #incapsulation
             f"role='{self.role}', status={status})"
         )
 
+
 class Admin(User):
-   #наслідування
+    # наслідування
     def __init__(
         self,
         username: str,

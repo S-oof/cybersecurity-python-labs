@@ -104,7 +104,7 @@ def get_record_by_id(record_id: int) -> dict[str, Any] | None:
         return _fetch_record(connection, record_id)
 
 
-def get_records(  #перевіряє посилання після ?
+def get_records(  # перевіряє посилання після ?
     category_id: int | None = None,
     status: str | None = None,
     min_value: float | None = None,
@@ -188,7 +188,9 @@ def delete_record(record_id: int) -> None:
             connection.execute("DELETE FROM records WHERE id = ?", (record_id,))
 
 
-def create_records_bulk(records: list[RecordCreate]) -> list[dict[str, Any]]: #даю велики джсон і створює по ньому декілька записів
+def create_records_bulk(
+    records: list[RecordCreate],
+) -> list[dict[str, Any]]:  # даю велики джсон і створює по ньому декілька записів
     """Додати пакет записів в одній транзакції: або всі, або жоден."""
     codes = [record.code for record in records]
     if len(codes) != len(set(codes)):

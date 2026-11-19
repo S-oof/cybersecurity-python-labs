@@ -16,13 +16,13 @@ from pydantic import ValidationError
 from labs.lab03.database import get_connection, initialize_database
 from labs.lab03.schemas import CategoryRead, RecordCreate
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s") 
-logger = logging.getLogger(__name__) 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 SEED_PATH = Path(__file__).resolve().parent / "data" / "seed.json"
 
 
-def load_seed(path: Path) -> tuple[list[CategoryRead], list[RecordCreate]]: 
+def load_seed(path: Path) -> tuple[list[CategoryRead], list[RecordCreate]]:
     """Прочитати JSON і перевірити його тими самими моделями, що й API."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -34,7 +34,7 @@ def load_seed(path: Path) -> tuple[list[CategoryRead], list[RecordCreate]]:
     if not isinstance(data, dict) or set(data) != {"categories", "records"}:
         raise ValueError("JSON має бути об'єктом з ключами 'categories' і 'records'")
 
-    try: #перевіряє чи дані коректні
+    try:  # перевіряє чи дані коректні
         categories = [CategoryRead.model_validate(item) for item in data["categories"]]
         records = [RecordCreate.model_validate(item) for item in data["records"]]
     except (TypeError, ValidationError) as error:
